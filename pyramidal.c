@@ -5,7 +5,7 @@
 #include <math.h>
 
 #define PACK_T uint64_t
-#define PACK_LEN (sizeof(PACK_T) * 8)
+#define PACK_SIZE (sizeof(PACK_T) * 8)
 
 unsigned long long pyramid(unsigned long long p)
 {
@@ -17,13 +17,13 @@ PACK_T* ext_shift(PACK_T ch, uint8_t pos)
     static PACK_T retval[2];
     retval[0] = ch << pos;
     if (pos==0) retval[1] = 0;
-    else retval[1] = ch >> (PACK_LEN-pos);
+    else retval[1] = ch >> (PACK_SIZE-pos);
     return retval;
 }
 
 void mark(PACK_T *set, unsigned long long pos)
 {
-    uint8_t bitsize = PACK_LEN;
+    uint8_t bitsize = PACK_SIZE;
     uint8_t setbit = pos % bitsize;
     unsigned long long int offset = pos / bitsize;
     set[offset] |= 1ULL<<setbit;
@@ -32,7 +32,7 @@ void mark(PACK_T *set, unsigned long long pos)
 
 PACK_T test(const PACK_T *set, unsigned long long pos)
 {
-    uint8_t bitsize = PACK_LEN;
+    uint8_t bitsize = PACK_SIZE;
     uint8_t testbit = pos % bitsize;
     unsigned long int offset = pos / bitsize;
 //    printf("testbit %d, offset %ld, s 0x%llX, b 0x%llX\n", testbit, offset, set[offset], 1LL<<testbit);
@@ -41,7 +41,7 @@ PACK_T test(const PACK_T *set, unsigned long long pos)
 
 void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, unsigned long long pos)
 {
-    uint8_t bitsize = PACK_LEN;
+    uint8_t bitsize = PACK_SIZE;
     uint8_t bitoff = pos % bitsize;
     unsigned long long offset = pos / bitsize;
     PACK_T *shifted;
@@ -61,7 +61,7 @@ void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, u
 void pr(const PACK_T *set, unsigned long long length)
 {
     unsigned long long i;
-    for(i=0;i<length*PACK_LEN;i++)
+    for(i=0;i<length*PACK_SIZE;i++)
     {
         if(test(set, i)) printf("X, %lld\n", i);
        // else printf("O, %ld\n", i);
@@ -69,7 +69,7 @@ void pr(const PACK_T *set, unsigned long long length)
 }
 
 void save(char *fname, PACK_T *set, unsigned long long length)
-{
+{/*
     FILE *ptr_file;
     unsigned long long i;
     ptr_file = fopen(fname, "wb");
@@ -79,9 +79,9 @@ void save(char *fname, PACK_T *set, unsigned long long length)
     }
     else
     {
-        fwrite(set, PACK_LEN, length, ptr_file);
+        fwrite(set, PACK_SIZE, length, ptr_file);
     }
-    fclose(ptr_file);
+    fclose(ptr_file);*/
     return;
 }
 
@@ -103,8 +103,8 @@ int main(int argc, char *argv[])
         words bit 0 in our packing always remains empty since the first pyramidal number is one.
         Therefor the cardinality for the set of 1000000 numbers is 1000001.*/ 
         numints = 1000000+1;
-        length = numints / PACK_LEN;
-        if(numints % PACK_LEN != 0) length++;
+        length = numints / PACK_SIZE;
+        if(numints % PACK_SIZE != 0) length++;
         maxp = (long long) floor(6.0*numints)+1ULL;
     }
     else if ((argc == 2) && (atoll(argv[1]) != 0))
@@ -113,8 +113,8 @@ int main(int argc, char *argv[])
         words bit 0 in our packing always remains empty since the first pyramidal number is one.
         Therefor the cardinality for argv[1] numbers is argv[1]+1*/ 
         numints = atoll(argv[1]) + 1;
-        length = numints / PACK_LEN;
-        if (numints % PACK_LEN != 0) length++;
+        length = numints / PACK_SIZE;
+        if (numints % PACK_SIZE != 0) length++;
         maxp = (long long) floor(6.0*numints)+1ULL;  
     }
     else
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
     unsigned long long int i, j, tmp, n1, n2, n3, n4, n5;
     for(i=2;i<=maxp;i++)
     {
-        if (pyramid(i)>=length*PACK_LEN) break;
+        if (pyramid(i)>=length*PACK_SIZE) break;
         mark(numberset, pyramid(i));
     }
     printf("First stage done.\n");
@@ -146,6 +146,7 @@ int main(int argc, char *argv[])
     for(i = 0; i < numints; i++)
     {
         if(test(numberset,i)) j++;
+        if (i%1000000000ULL == 0) printf("N1 %lld : %lld\n",i,j);
     }
     n1 = j;
     printf("Number in N1: %lld\n", n1);
@@ -170,6 +171,7 @@ int main(int argc, char *argv[])
     for(i=0;i < numints; i++)
     {
         if(test(numberset,i)) j++;
+        if (i%1000000000ULL == 0) printf("N2 %lld : %lld\n",i,j);
     }
     n2 = j - n1;
     printf("Number in N2: %lld\n", n2);
@@ -194,6 +196,7 @@ int main(int argc, char *argv[])
     for(i=0; i < numints; i++)
     {
         if(test(numberset,i)) j++;
+        if (i%1000000000ULL == 0) printf("N3 %lld : %lld\n",i,j);
     }
     n3 = j - n2 - n1;
     printf("Number in N3: %lld\n", n3);
@@ -218,6 +221,7 @@ int main(int argc, char *argv[])
     for(i=0; i< numints; i++)
     {
         if(test(numberset,i)) j++;
+        if (i%1000000000ULL == 0) printf("N4 %lld : %lld\n",i,j);
     }
     n4 = j - n3 - n2 - n1;
     printf("Number in N4: %lld\n", n4);
