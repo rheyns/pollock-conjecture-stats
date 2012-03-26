@@ -121,9 +121,9 @@ int main(int argc, char *argv[])
     {
         printf("Usage is %s length: Where length is the number of integers to check.\n", argv[0]);
     }
-    /* 128 MB bit field representing the set of numbers representable
-    as the sum of fewer than 4 pyramidal numbers
-    PACK_T *numberset = malloc(134217728)131072;*/
+    /* numberset is a large bit field representing the set of numbers representable
+    as the sum of fewer than 5 pyramidal numbers
+    */
 
     printf("length %lld\n", length);
     PACK_T *numberset = calloc(length, sizeof(PACK_T));
