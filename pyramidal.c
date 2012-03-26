@@ -7,6 +7,19 @@
 #define PACK_T uint64_t
 #define PACK_SIZE (sizeof(PACK_T) * 8)
 
+struct bitpack {
+    PACK_T *set; /* Pointer to structure containing packed bit representation
+                  * of a potentially huge number of integers. For efficiency
+                  * PACK_T should be the largest representable integer size on
+                  * the system for which efficient standar arithmetic operations
+                  * are defined.
+                  */
+    unsigned long long length; /* length of array pointed to by set. Alternately
+                                * number of PACK_T's contained in set.
+                                */
+    unsigned long long maxnum; /* Number of integers packed into bits*/
+};
+
 unsigned long long pyramid(unsigned long long p)
 {
     return (p*(p*p - 1))/6;
@@ -25,26 +38,23 @@ PACK_T* ext_shift(PACK_T ch, uint8_t pos)
 
 void mark(PACK_T *set, unsigned long long pos)
 {
-    uint8_t bitsize = PACK_SIZE;
-    uint8_t setbit = pos % bitsize;
-    unsigned long long int offset = pos / bitsize;
+    uint8_t setbit = pos % PACK_SIZE;
+    unsigned long long int offset = pos / PACK_SIZE;
     set[offset] |= 1ULL<<setbit;
     return;
 }
 
 PACK_T test(const PACK_T *set, unsigned long long pos)
 {
-    uint8_t bitsize = PACK_SIZE;
-    uint8_t testbit = pos % bitsize;
-    unsigned long int offset = pos / bitsize;
+    uint8_t testbit = pos % PACK_SIZE;
+    unsigned long int offset = pos / PACK_SIZE;
     return set[offset] & 1ULL<<testbit;
 }
 
 void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, unsigned long long pos)
 {
-    uint8_t bitsize = PACK_SIZE;
-    uint8_t bitoff = pos % bitsize;
-    unsigned long long offset = pos / bitsize;
+    uint8_t bitoff = pos % PACK_SIZE;
+    unsigned long long offset = pos / PACK_SIZE;
     PACK_T *shifted;
     unsigned long long i;
     
@@ -79,7 +89,7 @@ void pr(const PACK_T *set, unsigned long long length)
     }
 }
 
-void save(char *fname, PACK_T *set, unsigned long long length)
+/*void save(char *fname, PACK_T *set, unsigned long long length)
 {
     FILE *ptr_file;
     unsigned long long i;
@@ -90,7 +100,7 @@ void save(char *fname, PACK_T *set, unsigned long long length)
         fwrite(set, PACK_SIZE, length, ptr_file);
     fclose(ptr_file);
     return;
-}
+}*/
 
 /*
     Overall strategy is to first mark the integers which are pyramidal
@@ -133,7 +143,7 @@ int main(int argc, char *argv[])
     */
     PACK_T *numberset = calloc(length, sizeof(PACK_T));
     PACK_T *tmpset = calloc(length, sizeof(PACK_T));
-    if (numberset == NULL | tmpset == NULL) {
+    if ((numberset == NULL) | (tmpset == NULL)) {
         printf("Failed to allocate memory. \n");
         return -1;
     }
