@@ -1,0 +1,53 @@
+Introduction:
+This program aims to empirically check Pollock's conjecture[1] for finite
+integers.
+
+Briefly, Pollock's conjecture states that every integer can be represented
+as the sum of no more than 5 tetrahedral numbers. Where a tetrahedral
+number is defined as T(m) = (m^3 - m) / 6
+
+Compiling:
+gcc -O3 -o pyramidal pyramidal.c
+Headers may have to be changed if using MSVC since I don't believe
+Microsoft supports stdint.h or the C99 uintxx_t types.
+
+Usage:
+Run pyramidal with a single integer parameter. The parameter indicates which
+billion integer block should be examined. For example
+
+user@host:~$ ./pyramidal 1
+N1 number in segment 1: 1816
+N2 number in segment 1: 1451433
+N3 number in segment 1 part 0: 446186613
+N4ish coverage of the next segment 1000000000
+
+Output:
+The output of this program is statistics on the distribution of integers in
+a billion integer slice. In the above output N1 number indicates the number
+of tetrahedral numbers in the interval [1, 1,000,000,000] while N2 indicates
+the number of integers in that interval representable as the sum of exactly
+two tetrahedral numbers. N3 similarly represents the number of integers
+requiring axactly three tetrahedral numbers to represent them. For
+parameters greater than 1 this line also gives an indication of progress.
+N4ish coverege indicates the number of integers in the following segment
+- [1,000,000,001, 2,000,000,000] in this case - which can be represented as
+the sum of N1, N2 and N3 elements in the given segment plus tetrahedral
+numbers in the inteval [1, 10^9]. An output of 1000000000 here indicates
+complete coverage. The reason this is referred to as N4ish coverage is that
+this is actually proves a stronger statement than whether these numbers can
+be represented as the sum of ANY four tetrahedral numbers. If this number
+is less than a billion it is still possible that all the integers are
+represented and a more complete check should be undertaken. Thusfar coverage
+appears complete up to 401 billion.
+
+Background:
+In the first published numerical attack on Pollock's conjecture Salzer[2]
+enumerated the 241 integers known to require exactly five tetrahedral
+numbers, the largest of which is 343,867. 
+Afterwards this problem was revisited around 1992 by several mathematicians
+who were concerned with checking the conjecture for integers up to 10^9.[3]
+The most recent published effort managed to verify the conjecture for
+integers up to 40 billion.
+
+[1] http://mathworld.wolfram.com/PollocksConjecture.html
+[2] Salzer, H. E. and Levine, N. "Table of Integers Not Exceeding 1000000 that are Not Expressible as the Sum of Four Tetrahedral Numbers." Math. Comput. 12, 141-144, 1958.
