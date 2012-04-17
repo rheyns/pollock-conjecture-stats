@@ -47,7 +47,11 @@ numbers, the largest of which is 343,867.
 Afterwards this problem was revisited around 1992 by several mathematicians
 who were concerned with checking the conjecture for integers up to 10^9.[3]
 The most recent published effort managed to verify the conjecture for
-integers up to 40 billion.
+integers up to 40 billion.[4] Using this program along with some help from 
+friends and EC2 instance I was able to generate statistics for numbers up to
+400 billion, writeup to follow soon.
 
 [1] http://mathworld.wolfram.com/PollocksConjecture.html
 [2] Salzer, H. E. and Levine, N. "Table of Integers Not Exceeding 1000000 that are Not Expressible as the Sum of Four Tetrahedral Numbers." Math. Comput. 12, 141-144, 1958.
+[3] Waring's Problem for Pyramidal Numbers http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.15.3230&rep=rep1&type=pdf
+[4] Decomposing 40 billion integers by four tetrahedral numbers. http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.140.7839&rep=rep1&type=pdf
