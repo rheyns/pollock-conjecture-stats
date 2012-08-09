@@ -7,19 +7,6 @@
 #define PACK_T uint64_t
 #define PACK_SIZE (sizeof(PACK_T) * 8)
 
-struct bitpack {
-    PACK_T *set; /* Pointer to structure containing packed bit representation
-                  * of a potentially huge number of integers. For efficiency
-                  * PACK_T should be the largest representable integer size on
-                  * the system for which efficient standar arithmetic operations
-                  * are defined.
-                  */
-    unsigned long long length; /* length of array pointed to by set. Alternately
-                                * number of PACK_T's contained in set.
-                                */
-    unsigned long long maxnum; /* Number of integers packed into bits*/
-};
-
 /* Generate the p'th pyramidal number.*/
 unsigned long long pyramid(unsigned long long p)
 {
