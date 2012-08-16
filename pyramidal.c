@@ -20,6 +20,31 @@ struct bitpack {
     unsigned long long maxnum; /* Number of integers packed into bits*/
 };
 
+unsigned long long cuberoot(unsigned long long n)
+{
+    unsigned long long ret = pow(n + 0.5, 1.0/3);
+    if (n < 100000000000001ULL)
+        return ret;
+    if (n >= 18446724184312856125ULL)
+        return 2642245ULL;
+    if (ret * ret * ret > n) {
+        ret--;
+        while (ret * ret * ret > n)
+            ret--;
+        return ret;
+    }
+    while ((ret + 1) * (ret + 1) * (ret + 1) <= n)
+        ret++;
+    return ret;
+}
+
+/* The inverse function of the pyramidal numbers is well
+bounded below by the cube root function.*/
+unsigned long long invpyr(unsigned long long n)
+{
+    return cuberoot(n*6)+1;
+}
+
 /* Generate the p'th pyramidal number.*/
 unsigned long long pyramid(unsigned long long p)
 {
@@ -68,15 +93,15 @@ PACK_T test(const PACK_T *set, unsigned long long pos)
              set[1] = 0b11111111;
              target[0] = 0b11111111;
              target[1] = 0b00000000;
-             pos = 12;
+             shift = 12;
              segoffset = 2;
              Resultant target[0] = 0b11111111;
              target[1] = 0b11110000;
              */
-void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, unsigned long long pos, unsigned long long segoffset)
+void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, unsigned long long shift, unsigned long long segoffset)
 {
-    uint8_t bitoff = pos % PACK_SIZE;
-    unsigned long long offset = pos / PACK_SIZE;
+    uint8_t bitoff = shift % PACK_SIZE;
+    unsigned long long offset = shift / PACK_SIZE;
     PACK_T *shifted;
     unsigned long long i;
     
@@ -95,9 +120,9 @@ void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, u
 }
 
 /* A fast method for doing population counts for bits. Equivalent to gcc's
-   __builtin_popcountll instruction. Needs to be changed in PACK_T is not 
+   __builtin_popcountll instruction. Needs to be changed if PACK_T is not 
    uint64_t. */
-uint32_t pop4(PACK_T *elements)
+uint64_t pop4(PACK_T *elements)
 {
     uint64_t x, y, u, v;
     x = elements[0];
@@ -157,7 +182,7 @@ void genn1(PACK_T *set, unsigned long long length, unsigned long long offset)
 {
     unsigned long long i;
     unsigned long long numelements = length * PACK_SIZE;
-    unsigned long long maxp = (offset+numelements)/500000ULL;
+    unsigned long long maxp = invpyr(offset+numelements) + 1;
     for(i=2;i<=maxp;i++) {
         if (pyramid(i) < offset + 1)
             continue;
@@ -172,7 +197,7 @@ void genn2(PACK_T *set, unsigned long long length, unsigned long long offset)
 {
     unsigned long long i,j,tmp;
     unsigned long long numelements = length * PACK_SIZE;
-    unsigned long long maxp = (offset+numelements)/500000ULL;
+    unsigned long long maxp = invpyr(offset+numelements) + 1;
     for(i=2;i<=maxp;i++) {
         if (pyramid(i) > offset + numelements)
             break;
@@ -192,10 +217,8 @@ void gennext(PACK_T *srcset, PACK_T *dstset, unsigned long long length, unsigned
 {
     unsigned long long i,j,tmp;
     unsigned long long numelements = length * PACK_SIZE;
-    unsigned long long maxp = (offset+numelements)/500000ULL;
+    unsigned long long maxp = invpyr(offset+numelements) + 1;
     for(i=2; i < maxp; i++) {
-        /*if (i%10 == 0 && count_set(dstset, length) == length * PACK_SIZE)
-            {printf("Hooray! %llu\n",i);break;}*/
         if (pyramid(i) + numelements + 1 < offset)
             continue;
         if (pyramid(i) > numelements + offset)
@@ -205,7 +228,7 @@ void gennext(PACK_T *srcset, PACK_T *dstset, unsigned long long length, unsigned
 }
 
 /*
-    This program aims to be an aid for studying the Pollock Conecture.
+    This program aims to be an aid for studying the Pollock Conjecture.
     Integers are represented as positions in a bit array consisting of elements
     of type PACK_T. In practice PACK_T should be the largest representable 
     unsinged integer type on any given architecture. 
@@ -225,20 +248,29 @@ int main(int argc, char *argv[])
     segelements = 1000000000ULL;
     seglength = segelements / PACK_SIZE;
     /* By default assume we want 1,000,000,000 digits checked*/
-    if (argc != 2) {
+    if (argc == 1) {
         /*bit 0 in our packing represents 1, bit 1 represents 2 etc*/ 
         numsegs = 1;
-        maxp = 2000ULL;
+        maxp = invpyr(segelements) + 1;
     }
-    else if ((argc == 2) && (atoll(argv[1]) > 0)) { 
+    else if ((argc == 2) && (atoll(argv[1]) > 0)) {
         numsegs = atoll(argv[1]);
-        maxp = 2000ULL * numsegs;
+        maxp = invpyr(numsegs*segelements) + 1;
     }
-    else
+    else if ((argc == 3) && (atoll(argv[1]) > 0) && (atoll(argv[2]) % 256 == 0)) {
+        numsegs = atoll(argv[1]);
+        segelements = atoll(argv[2]);
+        seglength = segelements / PACK_SIZE;
+        maxp = invpyr(numsegs*segelements) + 1;
+    }
+    else {
         printf("Usage is %s blocknum: Where blocknum is the identifier of a billion\
-        integer block to check Pollock's conjecture on.\n\
+        integer block to check Pollock's conjecture on.\n\n\
+        Alternate usage is %s blocknum blocklen: Where blocklen is the length of each block\n\
         \nExample: %s 1\n\nComputes the relevant statistics for the first billion integers.\n\
-        Note that the statistics are incremental only.", argv[0], argv[0]);
+        Note that the statistics are incremental only.\n", argv[0], argv[0], argv[0]);
+        return 0;
+    }
     offset = (numsegs - 1) * segelements;
     
     /* numberset is a large bit field representing the set of numbers representable
@@ -256,31 +288,37 @@ int main(int argc, char *argv[])
     genn1(tmpset, seglength, offset);
     n1 = count_set(tmpset, seglength);
     printf("N1 number in segment %llu: %llu\n", numsegs, n1);
+    fflush(stdout);
     
     /* 2 */
     genn2(tmpset, seglength, offset);
     n2 = count_set(tmpset, seglength) - n1;
     printf("N2 number in segment %llu: %llu\n", numsegs, n2);
-    for(i=0; i < numsegs; i++) {
+    fflush(stdout);
+    for(i=0; i < numsegs*2/3 + 1; i++) {
         curroffset = i * segelements;
         memset(numberset, 0, seglength * sizeof(PACK_T));
         genn1(numberset, seglength, curroffset);
         genn2(numberset, seglength, curroffset);
         gennext(numberset, tmpset, seglength, offset - curroffset);
-        prev2 = prev;
+        /*prev2 = prev;
         prev = n3;
         n3 = count_set(tmpset, seglength) - n2 - n1;
         printf("N3 number in segment %llu part %llu: %llu\n", numsegs, i, n3);
         if(prev2 == n3)
-            break;
+            break;*/
     }
-    /*memcpy(numberset, tmpset, seglength * sizeof(PACK_T));*/
+    n3 = count_set(tmpset, seglength) - n2 - n1;
+    printf("N3 number in segment %llu: %llu\n", numsegs, n3);
+    fflush(stdout);
+    
     memset(numberset, 0, seglength * sizeof(PACK_T));
     genn1(numberset, seglength, offset+segelements);
     genn2(numberset, seglength, offset+segelements);
     gennext(tmpset, numberset, seglength, segelements);
     n4 = count_set(numberset, seglength);
-    printf("N4ish coverage of the next segment %llu\n", n4);
+    printf("N4 coverage of the next segment using fast algorithm %llu\n", n4);
+    fflush(stdout);
     
     free(numberset);
     free(tmpset);
