@@ -1,6 +1,6 @@
 Introduction:
-This program aims to empirically check Pollock's conjecture[1] for finite
-integers.
+This program aims to empirically check Pollock's conjecture[1] for 
+integers smaller than 2^64.
 
 Briefly, Pollock's conjecture states that every integer can be represented
 as the sum of no more than 5 tetrahedral numbers. Where a tetrahedral
@@ -9,7 +9,8 @@ number is defined as T(m) = (m^3 - m) / 6
 Compiling:
 gcc -O3 -o pyramidal pyramidal.c
 Headers may have to be changed if using MSVC since I don't believe
-Microsoft supports stdint.h or the C99 uintxx_t types.
+Microsoft supports stdint.h or the C99 uintxx_t types but it's been a while
+since I checked this.
 
 Usage:
 Run pyramidal with a single integer parameter. The parameter indicates which
@@ -49,9 +50,10 @@ who were concerned with checking the conjecture for integers up to 10^9.[3]
 The most recent published effort managed to verify the conjecture for
 integers up to 40 billion.[4] Using this program along with some help from 
 friends and EC2 instance I was able to generate statistics for numbers up to
-400 billion, writeup to follow soon.
+400 billion, writeup to follow soon on my blog[5].
 
 [1] http://mathworld.wolfram.com/PollocksConjecture.html
 [2] Salzer, H. E. and Levine, N. "Table of Integers Not Exceeding 1000000 that are Not Expressible as the Sum of Four Tetrahedral Numbers." Math. Comput. 12, 141-144, 1958.
 [3] Waring's Problem for Pyramidal Numbers http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.15.3230&rep=rep1&type=pdf
 [4] Decomposing 40 billion integers by four tetrahedral numbers. http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.140.7839&rep=rep1&type=pdf
+[5] http://euler.rouxheyns.com
