@@ -7,19 +7,6 @@
 #define PACK_T uint64_t
 #define PACK_SIZE (sizeof(PACK_T) * 8)
 
-struct bitpack {
-    PACK_T *set; /* Pointer to structure containing packed bit representation
-                  * of a potentially huge number of integers. For efficiency
-                  * PACK_T should be the largest representable integer size on
-                  * the system for which efficient standar arithmetic operations
-                  * are defined.
-                  */
-    unsigned long long length; /* length of array pointed to by set. Alternately
-                                * number of PACK_T's contained in set.
-                                */
-    unsigned long long maxnum; /* Number of integers packed into bits*/
-};
-
 unsigned long long cuberoot(unsigned long long n)
 {
     unsigned long long ret = pow(n + 0.5, 1.0/3);
@@ -266,9 +253,10 @@ int main(int argc, char *argv[])
     else {
         printf("Usage is %s blocknum: Where blocknum is the identifier of a billion\
         integer block to check Pollock's conjecture on.\n\n\
-        Alternate usage is %s blocknum blocklen: Where blocklen is the length of each block\n\
         \nExample: %s 1\n\nComputes the relevant statistics for the first billion integers.\n\
-        Note that the statistics are incremental only.\n", argv[0], argv[0], argv[0]);
+        Note that the statistics are for a given block of integers only.\n\
+        Alternate usage is %s blocknum blocklen: Where blocklen is the length of each block\n\
+        and blocklen must be divisible by 256.\n", argv[0], argv[0], argv[0]);
         return 0;
     }
     offset = (numsegs - 1) * segelements;
@@ -295,23 +283,20 @@ int main(int argc, char *argv[])
     n2 = count_set(tmpset, seglength) - n1;
     printf("N2 number in segment %llu: %llu\n", numsegs, n2);
     fflush(stdout);
+    
+    /* 3 */
     for(i=0; i < numsegs*2/3 + 1; i++) {
         curroffset = i * segelements;
         memset(numberset, 0, seglength * sizeof(PACK_T));
         genn1(numberset, seglength, curroffset);
         genn2(numberset, seglength, curroffset);
         gennext(numberset, tmpset, seglength, offset - curroffset);
-        /*prev2 = prev;
-        prev = n3;
-        n3 = count_set(tmpset, seglength) - n2 - n1;
-        printf("N3 number in segment %llu part %llu: %llu\n", numsegs, i, n3);
-        if(prev2 == n3)
-            break;*/
     }
     n3 = count_set(tmpset, seglength) - n2 - n1;
     printf("N3 number in segment %llu: %llu\n", numsegs, n3);
     fflush(stdout);
     
+    /* 4 */
     memset(numberset, 0, seglength * sizeof(PACK_T));
     genn1(numberset, seglength, offset+segelements);
     genn2(numberset, seglength, offset+segelements);
