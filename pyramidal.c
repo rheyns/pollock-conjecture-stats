@@ -6,6 +6,7 @@
 
 #define PACK_T uint64_t
 #define PACK_SIZE (sizeof(PACK_T) * 8)
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
 unsigned long long cuberoot(unsigned long long n)
 {
@@ -91,10 +92,12 @@ void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, u
     unsigned long long offset = shift / PACK_SIZE;
     PACK_T *shifted;
     unsigned long long i;
+    long long off_the_end;
+    off_the_end = length + segoffset - offset;
+    if (off_the_end < 0) printf("Failure!!!!!");
+    long long stop = MIN(length, off_the_end);
     
-    for (i = 0; i < length; i++) {
-        if(i + offset >= length + segoffset)
-            break;
+    for (i = 0; i < stop; i++) {
         shifted = ext_shift(source[i], bitoff);
         if(i + offset >= segoffset)
             target[(i + offset) - segoffset] |= shifted[0];
@@ -106,63 +109,27 @@ void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, u
     return;
 }
 
-/* A fast method for doing population counts for bits. Equivalent to gcc's
-   __builtin_popcountll instruction. Needs to be changed if PACK_T is not 
-   uint64_t. */
-uint64_t pop4(PACK_T *elements)
-{
-    uint64_t x, y, u, v;
-    x = elements[0];
-    y = elements[1];
-    u = elements[2];
-    v = elements[3];
-    enum { m1 = 0x5555555555555555, 
-         m2 = 0x3333333333333333, 
-         m3 = 0x0F0F0F0F0F0F0F0F, 
-         m4 = 0x000000FF000000FF };
-    
-    x = x - ((x >> 1) & m1);
-    y = y - ((y >> 1) & m1);
-    u = u - ((u >> 1) & m1);
-    v = v - ((v >> 1) & m1);
-    x = (x & m2) + ((x >> 2) & m2);
-    y = (y & m2) + ((y >> 2) & m2);
-    u = (u & m2) + ((u >> 2) & m2);
-    v = (v & m2) + ((v >> 2) & m2);
-    x = x + y; 
-    u = u + v; 
-    x = (x & m3) + ((x >> 4) & m3);
-    u = (u & m3) + ((u >> 4) & m3);
-    x = x + u; 
-    x = x + (x >> 8);
-    x = x + (x >> 16);
-    x = x & m4; 
-    x = x + (x >> 32);
-    return x & 0x00000000000001FF;
-}
 
-/* Count the number of set bits in set. */
-unsigned long long count_set(PACK_T *set, unsigned long long length)
-{
-    unsigned long long int i,j;
-    j = 0;
-    for(i = 0; i < length; i += 4)
-        j += pop4(set+i);
-    return j;
-}
+uint32_t builtin_popcnt_unrolled_errata_manual(const uint64_t* buf, int len) {
+  uint64_t cnt[4];
+  for (int i = 0; i < 4; ++i) {
+    cnt[i] = 0;
+  }
 
-/* Save the results of set in a file.*/
-void save(char *fname, PACK_T *set, unsigned long long length)
-{
-    FILE *ptr_file;
-    unsigned long long i;
-    ptr_file = fopen(fname, "wb");
-    if (!ptr_file)
-        printf("Unable to open file!");
-    else
-        fwrite(set, sizeof(PACK_T), length, ptr_file);
-    fclose(ptr_file);
-    return;
+  for (int i = 0; i < len; i+=4) {
+    __asm__(
+        "popcnt %4, %4  \n\t"
+        "add %4, %0     \n\t"
+        "popcnt %5, %5  \n\t"
+        "add %5, %1     \n\t"
+        "popcnt %6, %6  \n\t"
+        "add %6, %2     \n\t"
+        "popcnt %7, %7  \n\t"
+        "add %7, %3     \n\t" // +r means input/output, r means intput
+        : "+r" (cnt[0]), "+r" (cnt[1]), "+r" (cnt[2]), "+r" (cnt[3])
+        : "r"  (buf[i]), "r"  (buf[i+1]), "r"  (buf[i+2]), "r"  (buf[i+3]));
+  }
+  return cnt[0] + cnt[1] + cnt[2] + cnt[3];
 }
 
 void genn1(PACK_T *set, unsigned long long length, unsigned long long offset)
@@ -200,17 +167,57 @@ void genn2(PACK_T *set, unsigned long long length, unsigned long long offset)
     return;
 }
 
+unsigned long long pyr(unsigned long long p)
+{
+    return p*(p+1)*(p+2)/6;
+}
+
+void genn3(PACK_T *set, unsigned long long length, unsigned long long offset)
+{
+    unsigned long long i, j, k, pyri, pyrj, pyrk;
+    unsigned long long numelements = length * PACK_SIZE;
+    unsigned long long maxi = offset + numelements;
+    unsigned long long maxp = invpyr(maxi);
+    unsigned long long minsum=maxi;
+    for (i = 1; i <= invpyr(maxi/2); ++i) {
+        pyri = pyr(i);
+        for (j = i; j <= invpyr(maxi/2); ++j) {
+            pyrj = pyr(j);
+            unsigned long long mink = j, pij = pyri + pyrj;
+            if (pij < offset) mink = invpyr(offset - pij);
+            if (mink>j) mink--;
+            for (k = mink; k < maxp; ++k) {
+                pyrk = pyr(k);
+                unsigned long long sum = pij + pyrk;
+                if (sum > maxi) break;
+                if (sum < offset + 1) continue;
+                mark(set, sum - offset - 1);
+            }
+        }
+    }
+}
+
 void gennext(PACK_T *srcset, PACK_T *dstset, unsigned long long length, unsigned long long offset)
 {
-    unsigned long long i,j,tmp;
+    unsigned long long i,j,tmp, pyr;
     unsigned long long numelements = length * PACK_SIZE;
     unsigned long long maxp = invpyr(offset+numelements) + 1;
+    unsigned long long deltap = invpyr(offset);
     for(i=2; i < maxp; i++) {
-        if (pyramid(i) + numelements + 1 < offset)
+	pyr = pyramid(i);
+        if (pyr + numelements + 1 < offset)
             continue;
-        if (pyramid(i) > numelements + offset)
+        if (pyr > numelements + offset)
             break;
-        shift_and_mark(srcset, dstset, length, pyramid(i), offset/PACK_SIZE);
+        shift_and_mark(srcset, dstset, length, pyr, offset/PACK_SIZE);
+        if (i>=deltap) {
+            if ((i-deltap) % 50 == 0) {
+                unsigned long long cnt = builtin_popcnt_unrolled_errata_manual(dstset, length);
+                if (cnt == numelements) {
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -274,34 +281,29 @@ int main(int argc, char *argv[])
     unsigned long long int i, j, tmp, n1, n2, n3, n4, n5, curroffset, prev, prev2;
 
     genn1(tmpset, seglength, offset);
-    n1 = count_set(tmpset, seglength);
+    n1 = builtin_popcnt_unrolled_errata_manual(tmpset, seglength);
     printf("N1 number in segment %llu: %llu\n", numsegs, n1);
     fflush(stdout);
     
     /* 2 */
     genn2(tmpset, seglength, offset);
-    n2 = count_set(tmpset, seglength) - n1;
+    n2 = builtin_popcnt_unrolled_errata_manual(tmpset, seglength) - n1;
     printf("N2 number in segment %llu: %llu\n", numsegs, n2);
     fflush(stdout);
     
     /* 3 */
-    for(i=0; i < numsegs*2/3 + 1; i++) {
-        curroffset = i * segelements;
-        memset(numberset, 0, seglength * sizeof(PACK_T));
-        genn1(numberset, seglength, curroffset);
-        genn2(numberset, seglength, curroffset);
-        gennext(numberset, tmpset, seglength, offset - curroffset);
-    }
-    n3 = count_set(tmpset, seglength) - n2 - n1;
+    memcpy(numberset, tmpset, seglength * sizeof(PACK_T));
+    genn3(numberset, seglength, offset);
+    n3 = builtin_popcnt_unrolled_errata_manual(numberset, seglength) - n2 - n1;
     printf("N3 number in segment %llu: %llu\n", numsegs, n3);
     fflush(stdout);
     
     /* 4 */
-    memset(numberset, 0, seglength * sizeof(PACK_T));
-    genn1(numberset, seglength, offset+segelements);
-    genn2(numberset, seglength, offset+segelements);
-    gennext(tmpset, numberset, seglength, segelements);
-    n4 = count_set(numberset, seglength);
+    memset(tmpset, 0, seglength * sizeof(PACK_T));
+    genn1(tmpset, seglength, offset+segelements);
+    genn2(tmpset, seglength, offset+segelements);
+    gennext(numberset, tmpset, seglength, segelements);
+    n4 = builtin_popcnt_unrolled_errata_manual(tmpset, seglength);
     printf("N4 coverage of the next segment using fast algorithm %llu\n", n4);
     fflush(stdout);
     
