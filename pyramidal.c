@@ -7,6 +7,7 @@
 #define PACK_T uint64_t
 #define PACK_SIZE (sizeof(PACK_T) * 8)
 #define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 unsigned long long cuberoot(unsigned long long n)
 {
@@ -44,15 +45,14 @@ unsigned long long pyramid(unsigned long long p)
     This function returns two PACK_T integers where retval[1] is ch shifted
     left by pos and retval[0] is the result of the overflow off the left of
     ch << pos.*/
-PACK_T* ext_shift(PACK_T ch, uint8_t pos)
+void ext_shift(PACK_T ch, uint8_t pos, PACK_T retval[2])
 {
-    static PACK_T retval[2];
     retval[0] = ch << pos;
     if (pos==0)
         retval[1] = 0;
     else 
         retval[1] = ch >> (PACK_SIZE-pos);
-    return retval;
+    return;
 }
 
 /* Mark a particular bit in the array set. */
@@ -70,6 +70,28 @@ PACK_T test(const PACK_T *set, unsigned long long pos)
     uint8_t testbit = pos % PACK_SIZE;
     unsigned long int offset = pos / PACK_SIZE;
     return set[offset] & 1ULL<<testbit;
+}
+
+uint32_t popcnt(const uint64_t* buf, int len) {
+  uint64_t cnt[4];
+  for (int i = 0; i < 4; ++i) {
+    cnt[i] = 0;
+  }
+
+  for (int i = 0; i < len; i+=4) {
+    __asm__(
+        "popcnt %4, %4  \n\t"
+        "add %4, %0     \n\t"
+        "popcnt %5, %5  \n\t"
+        "add %5, %1     \n\t"
+        "popcnt %6, %6  \n\t"
+        "add %6, %2     \n\t"
+        "popcnt %7, %7  \n\t"
+        "add %7, %3     \n\t" // +r means input/output, r means intput
+        : "+r" (cnt[0]), "+r" (cnt[1]), "+r" (cnt[2]), "+r" (cnt[3])
+        : "r"  (buf[i]), "r"  (buf[i+1]), "r"  (buf[i+2]), "r"  (buf[i+3]));
+  }
+  return cnt[0] + cnt[1] + cnt[2] + cnt[3];
 }
 
 /* Shifts the entire array source by pos positions and set the bits of target
@@ -90,46 +112,30 @@ void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, u
 {
     uint8_t bitoff = shift % PACK_SIZE;
     unsigned long long offset = shift / PACK_SIZE;
-    PACK_T *shifted;
+    PACK_T shifted[2];
     unsigned long long i;
     long long off_the_end;
-    off_the_end = length + segoffset - offset;
-    if (off_the_end < 0) printf("Failure!!!!!");
-    long long stop = MIN(length, off_the_end);
+    off_the_end = length + segoffset - offset - 1;
+    if (off_the_end < 0) printf("Failure!!!!!\n");
+    long long stop = MIN(length-1, off_the_end);
+    const unsigned long long access_offset = offset - segoffset;
+    const long long start_offset = MAX(0, (long long)segoffset - (long long)offset);
     
-    for (i = 0; i < stop; i++) {
-        shifted = ext_shift(source[i], bitoff);
-        if(i + offset >= segoffset)
-            target[(i + offset) - segoffset] |= shifted[0];
-        if(i + offset + 1 >= length + segoffset)
-            break;
-        if(i + offset + 1 >= segoffset)
-            target[(i + offset + 1) - segoffset] |= shifted[1];
+    if (start_offset > 0) {
+        i = start_offset - 1;
+        ext_shift(source[i], bitoff, shifted);
+        target[i + 1 + access_offset] |= shifted[1];
     }
+
+    for (i = start_offset; i < stop; i++) {
+        ext_shift(source[i], bitoff, shifted);
+        target[i + access_offset] |= shifted[0];
+        target[i + 1 + access_offset] |= shifted[1];
+    }
+    i = stop;
+    ext_shift(source[i], bitoff, shifted);
+    target[i + access_offset] |= shifted[0];
     return;
-}
-
-
-uint32_t builtin_popcnt_unrolled_errata_manual(const uint64_t* buf, int len) {
-  uint64_t cnt[4];
-  for (int i = 0; i < 4; ++i) {
-    cnt[i] = 0;
-  }
-
-  for (int i = 0; i < len; i+=4) {
-    __asm__(
-        "popcnt %4, %4  \n\t"
-        "add %4, %0     \n\t"
-        "popcnt %5, %5  \n\t"
-        "add %5, %1     \n\t"
-        "popcnt %6, %6  \n\t"
-        "add %6, %2     \n\t"
-        "popcnt %7, %7  \n\t"
-        "add %7, %3     \n\t" // +r means input/output, r means intput
-        : "+r" (cnt[0]), "+r" (cnt[1]), "+r" (cnt[2]), "+r" (cnt[3])
-        : "r"  (buf[i]), "r"  (buf[i+1]), "r"  (buf[i+2]), "r"  (buf[i+3]));
-  }
-  return cnt[0] + cnt[1] + cnt[2] + cnt[3];
 }
 
 void genn1(PACK_T *set, unsigned long long length, unsigned long long offset)
@@ -212,7 +218,7 @@ void gennext(PACK_T *srcset, PACK_T *dstset, unsigned long long length, unsigned
         shift_and_mark(srcset, dstset, length, pyr, offset/PACK_SIZE);
         if (i>=deltap) {
             if ((i-deltap) % 50 == 0) {
-                unsigned long long cnt = builtin_popcnt_unrolled_errata_manual(dstset, length);
+                unsigned long long cnt = popcnt(dstset, length);
                 if (cnt == numelements) {
                     break;
                 }
@@ -281,20 +287,20 @@ int main(int argc, char *argv[])
     unsigned long long int i, j, tmp, n1, n2, n3, n4, n5, curroffset, prev, prev2;
 
     genn1(tmpset, seglength, offset);
-    n1 = builtin_popcnt_unrolled_errata_manual(tmpset, seglength);
+    n1 = popcnt(tmpset, seglength);
     printf("N1 number in segment %llu: %llu\n", numsegs, n1);
     fflush(stdout);
     
     /* 2 */
     genn2(tmpset, seglength, offset);
-    n2 = builtin_popcnt_unrolled_errata_manual(tmpset, seglength) - n1;
+    n2 = popcnt(tmpset, seglength) - n1;
     printf("N2 number in segment %llu: %llu\n", numsegs, n2);
     fflush(stdout);
     
     /* 3 */
     memcpy(numberset, tmpset, seglength * sizeof(PACK_T));
     genn3(numberset, seglength, offset);
-    n3 = builtin_popcnt_unrolled_errata_manual(numberset, seglength) - n2 - n1;
+    n3 = popcnt(numberset, seglength) - n2 - n1;
     printf("N3 number in segment %llu: %llu\n", numsegs, n3);
     fflush(stdout);
     
@@ -303,7 +309,7 @@ int main(int argc, char *argv[])
     genn1(tmpset, seglength, offset+segelements);
     genn2(tmpset, seglength, offset+segelements);
     gennext(numberset, tmpset, seglength, segelements);
-    n4 = builtin_popcnt_unrolled_errata_manual(tmpset, seglength);
+    n4 = popcnt(tmpset, seglength);
     printf("N4 coverage of the next segment using fast algorithm %llu\n", n4);
     fflush(stdout);
     
