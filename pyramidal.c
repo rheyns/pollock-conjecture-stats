@@ -184,7 +184,6 @@ void genn3(PACK_T *set, unsigned long long length, unsigned long long offset)
     unsigned long long numelements = length * PACK_SIZE;
     unsigned long long maxi = offset + numelements;
     unsigned long long maxp = invpyr(maxi);
-    unsigned long long minsum=maxi;
     for (i = 1; i <= invpyr(maxi/2); ++i) {
         pyri = pyr(i);
         for (j = i; j <= invpyr(maxi/2); ++j) {
@@ -205,7 +204,7 @@ void genn3(PACK_T *set, unsigned long long length, unsigned long long offset)
 
 void gennext(PACK_T *srcset, PACK_T *dstset, unsigned long long length, unsigned long long offset)
 {
-    unsigned long long i,j,tmp, pyr;
+    unsigned long long i, pyr;
     unsigned long long numelements = length * PACK_SIZE;
     unsigned long long maxp = invpyr(offset+numelements) + 1;
     unsigned long long deltap = invpyr(offset);
@@ -244,24 +243,21 @@ void gennext(PACK_T *srcset, PACK_T *dstset, unsigned long long length, unsigned
 */
 int main(int argc, char *argv[])
 {
-    unsigned long long numints,length,numsegs, segelements, seglength, maxp, offset;
+    unsigned long long numsegs, segelements, seglength, offset;
     segelements = 1000000000ULL;
     seglength = segelements / PACK_SIZE;
     /* By default assume we want 1,000,000,000 digits checked*/
     if (argc == 1) {
         /*bit 0 in our packing represents 1, bit 1 represents 2 etc*/ 
         numsegs = 1;
-        maxp = invpyr(segelements) + 1;
     }
     else if ((argc == 2) && (atoll(argv[1]) > 0)) {
         numsegs = atoll(argv[1]);
-        maxp = invpyr(numsegs*segelements) + 1;
     }
     else if ((argc == 3) && (atoll(argv[1]) > 0) && (atoll(argv[2]) % 256 == 0)) {
         numsegs = atoll(argv[1]);
         segelements = atoll(argv[2]);
         seglength = segelements / PACK_SIZE;
-        maxp = invpyr(numsegs*segelements) + 1;
     }
     else {
         printf("Usage is %s blocknum: Where blocknum is the identifier of a billion\
@@ -284,7 +280,7 @@ int main(int argc, char *argv[])
         return -1;
     }
     
-    unsigned long long int i, j, tmp, n1, n2, n3, n4, n5, curroffset, prev, prev2;
+    unsigned long long int n1, n2, n3, n4;
 
     genn1(tmpset, seglength, offset);
     n1 = popcnt(tmpset, seglength);
