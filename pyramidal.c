@@ -132,9 +132,11 @@ void shift_and_mark(PACK_T *source, PACK_T *target, unsigned long long length, u
         target[i + access_offset] |= shifted[0];
         target[i + 1 + access_offset] |= shifted[1];
     }
-    i = stop;
-    ext_shift(source[i], bitoff, shifted);
-    target[i + access_offset] |= shifted[0];
+    if (i + access_offset > 0) {
+        i = stop;
+        ext_shift(source[i], bitoff, shifted);
+        target[i + access_offset] |= shifted[0];
+    }
     return;
 }
 
